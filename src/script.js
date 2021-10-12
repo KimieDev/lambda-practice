@@ -11,7 +11,6 @@ const healthPath = '/health';
 const itemsPath = '/contact';
 
 exports.handler = async function(event) {
-    console.log('Request event: ', event);
     let response;
     switch(true){
         case event.httpMethod === 'GET' && event.path === healthPath :
@@ -24,7 +23,7 @@ exports.handler = async function(event) {
             if (!isEmailValid) {
                 response = buildResponse(400, {"errorMessage": "Invalid email address"});
             } else {
-                response = await addContact(JSON.parse(eventBody));
+                response = await addContact(eventBody);
             }
             break;
         default:
