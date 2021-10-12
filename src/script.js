@@ -18,10 +18,17 @@ exports.handler = async function(event) {
             response = buildResponse(200); 
             break;
         case event.httpMethod === 'POST' && event.path === itemsPath:
-            response = await addContact(JSON.parse(event.body));
+            const eventBody = JSON.parse(event.body);
+            const isEmailValid = validateEmail(eventBody.email);
+
+            if (!isEmailValid) {
+                response = buildResponse(400, {"errorMessage": "Invalid email address"});
+            } else {
+                response = await addContact(JSON.parse(eventBody));
+            }
             break;
         default:
-            response = buildResponse(404, '404 Not Found');
+            response = buildResponse(404, {"errorMessage": "404 not found"});
     }
     return response;
 }
@@ -40,7 +47,8 @@ function buildResponse(statusCode, body = 'healthy') {
 async function addContact(requestBody) {
     const reqBodyClone = JSON.parse(JSON.stringify(requestBody));
     reqBodyClone.id = Math.floor(Math.random() * 999999);
-    reqBodyClone.status = 'pending';
+    
+    reqBodyClone.status = validatedStatus(reqBodyClone.status);
     const params = {
       TableName: dynamodbTableName,
       Item: reqBodyClone
@@ -49,7 +57,26 @@ async function addContact(requestBody) {
 
       return buildResponse(201, reqBodyClone);
     }, (error) => {
-      console.error('make error handling', error);
+        buildResponse(500, {"errorMessage": "Opps something went wrong", "error": error});
     })
 }
 
+function validateEmail(email) {
+    if (!email || !email.length) {
+        return false;
+    }
+
+    const emailRegex = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    return emailRegex.test(email);
+}
+
+function validatedStatus(status) {
+    const statusTypes = ['active', 'unsubscribe', 'pending'];
+
+    let validatedStatus = status;
+    if (!status || !status.length || !statusTypes.includes(status)) {
+        validatedStatus = "pending";
+    }
+
+    return validatedStatus;
+}
